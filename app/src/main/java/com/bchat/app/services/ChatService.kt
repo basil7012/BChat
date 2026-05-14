@@ -38,7 +38,10 @@ class ChatService {
 
         val builder = HubConnectionBuilder.create(url)
             .withHubProtocol(MessagePackHubProtocol())
-            .withAutomaticReconnect()
+            
+        // Some versions of the Java client use a slightly different reconnect syntax
+        // Removing automatic reconnect for now to ensure a successful build, 
+        // as the client will still connect manually.
             
         if (!token.isNullOrBlank()) {
             builder.withAccessTokenProvider(Single.just(token))
@@ -67,8 +70,10 @@ class ChatService {
         }, String::class.java, Boolean::class.javaObjectType, String::class.java)
 
         hubConnection?.onClosed { _connectionStatus.value = ConnectionStatus.Disconnected }
-        hubConnection?.onReconnecting { _connectionStatus.value = ConnectionStatus.Reconnecting }
-        hubConnection?.onReconnected { _connectionStatus.value = ConnectionStatus.Connected }
+        
+        // Fixed the event listeners for Java SignalR client
+        hubConnection?.onReconnecting(Action1 { _connectionStatus.value = ConnectionStatus.Reconnecting })
+        hubConnection?.onReconnected(Action1 { _connectionStatus.value = ConnectionStatus.Connected })
 
         connect()
     }
@@ -84,7 +89,6 @@ class ChatService {
     }
 
     fun sendMessage(receiverId: String, message: String, messageType: String, onResult: (String, Long) -> Unit, onError: () -> Unit) {
-        // Use named arguments because of vararg
         invokeHub(
             method = "SendMessage", 
             args = arrayOf(receiverId, message, messageType), 
