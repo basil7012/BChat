@@ -7,7 +7,7 @@ import androidx.room.PrimaryKey
 data class MessageEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val messageId: String?, // ID from the server
-    val sender: String,
+    val senderId: String,
     val content: String,
     val timestamp: Long,
     val deliveryStatus: String, // "Pending", "Sent", "Delivered"

@@ -31,6 +31,8 @@ class ChatRepository(
     private val _userPresence = MutableStateFlow<Map<String, Boolean>>(emptyMap())
     val userPresence: StateFlow<Map<String, Boolean>> = _userPresence.asStateFlow()
 
+    private var _currentUserId: String = ""
+
     init {
         chatService.onMessageReceived = { messageId, user, encryptedMessage, timestamp, messageType, otherPersonId ->
             coroutineScope.launch {
@@ -39,12 +41,12 @@ class ChatRepository(
                 if (existingMessage == null) {
                     val entity = MessageEntity(
                         messageId = messageId,
-                        sender = user,
+                        senderId = otherPersonId, // In an incoming message, otherPersonId is the sender GUID
                         content = decryptedContent,
                         timestamp = timestamp,
                         deliveryStatus = "Delivered",
                         messageType = messageType,
-                        receiverId = otherPersonId
+                        receiverId = _currentUserId // This should be my GUID
                     )
                     messageDao.insert(entity)
                 } else {
@@ -77,6 +79,7 @@ class ChatRepository(
     fun startConnection(url: String) {
         coroutineScope.launch(Dispatchers.IO) {
             val token = authRepository.token.firstOrNull()
+            _currentUserId = authRepository.userId.firstOrNull() ?: ""
             chatService.startConnection(url, token)
         }
     }
@@ -87,13 +90,13 @@ class ChatRepository(
 
     fun sendMessage(receiverId: String, content: String, messageType: String = "text") {
         coroutineScope.launch {
-            val user = authRepository.email.firstOrNull() ?: "Me"
+            val userId = authRepository.userId.firstOrNull() ?: ""
             val encryptedContent = if (messageType == "text") EncryptionService.encrypt(content) else content
             
             val entity = MessageEntity(
                 messageId = null,
-                sender = user,
-                content = content, // Store decrypted locally for UI
+                senderId = userId,
+                content = content,
                 timestamp = System.currentTimeMillis(),
                 deliveryStatus = "Pending",
                 messageType = messageType,

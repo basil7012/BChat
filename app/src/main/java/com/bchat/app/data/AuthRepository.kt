@@ -19,10 +19,12 @@ class AuthRepository(private val context: Context, private val apiService: ApiSe
     companion object {
         private val TOKEN_KEY = stringPreferencesKey("jwt_token")
         private val EMAIL_KEY = stringPreferencesKey("user_email")
+        private val USER_ID_KEY = stringPreferencesKey("user_id")
     }
 
     val token: Flow<String?> = context.dataStore.data.map { it[TOKEN_KEY] }
     val email: Flow<String?> = context.dataStore.data.map { it[EMAIL_KEY] }
+    val userId: Flow<String?> = context.dataStore.data.map { it[USER_ID_KEY] }
 
     suspend fun register(request: AuthRequest): Response<Unit> = apiService.register(request)
 
@@ -30,7 +32,7 @@ class AuthRepository(private val context: Context, private val apiService: ApiSe
         val response = apiService.login(request)
         if (response.isSuccessful) {
             response.body()?.let {
-                saveAuthData(it.token, it.email)
+                saveAuthData(it.token, it.email, it.userId)
             }
         }
         return response
@@ -41,10 +43,11 @@ class AuthRepository(private val context: Context, private val apiService: ApiSe
     suspend fun uploadImage(file: MultipartBody.Part): Response<com.bchat.app.network.UploadResponse> = 
         apiService.uploadImage(file)
 
-    private suspend fun saveAuthData(token: String, email: String) {
+    private suspend fun saveAuthData(token: String, email: String, userId: String) {
         context.dataStore.edit { prefs ->
             prefs[TOKEN_KEY] = token
             prefs[EMAIL_KEY] = email
+            prefs[USER_ID_KEY] = userId
         }
     }
 

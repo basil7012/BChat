@@ -41,6 +41,7 @@ fun ChatScreen(viewModel: ChatViewModel, onBack: () -> Unit, modifier: Modifier 
     val isUploading by viewModel.isUploading.collectAsStateWithLifecycle()
     val contact by viewModel.selectedContact.collectAsStateWithLifecycle()
     val currentUserEmail by viewModel.currentUserEmail.collectAsStateWithLifecycle()
+    val currentUserId by viewModel.currentUserId.collectAsStateWithLifecycle()
     val isContactTyping by viewModel.isContactTyping.collectAsStateWithLifecycle()
     val isContactOnline by viewModel.isContactOnline.collectAsStateWithLifecycle()
     
@@ -108,7 +109,7 @@ fun ChatScreen(viewModel: ChatViewModel, onBack: () -> Unit, modifier: Modifier 
                 contentPadding = PaddingValues(vertical = 8.dp)
             ) {
                 items(messages, key = { it.id }) { msg ->
-                    val isMe = msg.sender == currentUserEmail
+                    val isMe = msg.senderId == currentUserId
                     
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),

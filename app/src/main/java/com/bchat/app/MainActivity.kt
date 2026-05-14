@@ -59,12 +59,14 @@ class MainActivity : ComponentActivity() {
                 ) {
                     val token by authRepository.token.collectAsState(initial = null)
                     val email by authRepository.email.collectAsState(initial = null)
+                    val userId by authRepository.userId.collectAsState(initial = null)
                     
                     var currentScreen by remember { mutableStateOf(Screen.Login) }
 
-                    LaunchedEffect(token, email) {
-                        if (!token.isNullOrBlank() && !email.isNullOrBlank()) {
+                    LaunchedEffect(token, email, userId) {
+                        if (!token.isNullOrBlank() && !email.isNullOrBlank() && !userId.isNullOrBlank()) {
                             viewModel.setCurrentUserEmail(email!!)
+                            viewModel.setCurrentUserId(userId!!)
                             viewModel.startConnection("http://bchat.runasp.net/chathub")
                             if (currentScreen == Screen.Login) {
                                 currentScreen = Screen.Contacts

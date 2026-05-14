@@ -20,19 +20,21 @@ class ChatViewModel(private val repository: ChatRepository) : ViewModel() {
     private val _users = MutableStateFlow<List<User>>(emptyList())
     val users = _users.asStateFlow()
 
-    private val _currentUserEmail = MutableStateFlow("")
-    val currentUserEmail = _currentUserEmail.asStateFlow()
+    private val _currentUserId = MutableStateFlow("")
+    val currentUserId = _currentUserId.asStateFlow()
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val messages: StateFlow<List<MessageEntity>> = _selectedContact
-        .filterNotNull()
-        .flatMapLatest { contact ->
-            repository.getMessagesForConversation(_currentUserEmail.value, contact.id)
+    val messages: StateFlow<List<MessageEntity>> = combine(_selectedContact, _currentUserId) { contact, userId ->
+        contact to userId
+    }
+        .filter { it.first != null && it.second.isNotEmpty() }
+        .flatMapLatest { (contact, userId) ->
+            repository.getMessagesForConversation(userId, contact!!.id)
         }
         .onEach { msgs ->
             // Mark unread messages as read when they appear in the UI
-            msgs.filter { !it.isRead && it.sender != _currentUserEmail.value }.forEach {
-                it.messageId?.let { mid -> markAsRead(mid, it.sender) }
+            msgs.filter { !it.isRead && it.senderId != _currentUserId.value }.forEach {
+                it.messageId?.let { mid -> markAsRead(mid, it.senderId) }
             }
         }
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
@@ -52,6 +54,7 @@ class ChatViewModel(private val repository: ChatRepository) : ViewModel() {
     val isUploading: StateFlow<Boolean> = _isUploading.asStateFlow()
 
     fun setCurrentUserEmail(email: String) { _currentUserEmail.value = email }
+    fun setCurrentUserId(id: String) { _currentUserId.value = id }
 
     fun selectContact(contact: User) { _selectedContact.value = contact }
 
@@ -60,7 +63,7 @@ class ChatViewModel(private val repository: ChatRepository) : ViewModel() {
             try {
                 val response = repository.getUsers()
                 if (response.isSuccessful) {
-                    _users.value = response.body()?.filter { it.email != _currentUserEmail.value } ?: emptyList()
+                    _users.value = response.body()?.filter { it.id != _currentUserId.value } ?: emptyList()
                 }
             } catch (e: Exception) {}
         }
@@ -108,6 +111,8 @@ class ChatViewModel(private val repository: ChatRepository) : ViewModel() {
             } catch (e: Exception) {} finally { _isUploading.value = false }
         }
     }
+    private val _currentUserEmail = MutableStateFlow("")
+    val currentUserEmail = _currentUserEmail.asStateFlow()
 
     override fun onCleared() {
         super.onCleared()
