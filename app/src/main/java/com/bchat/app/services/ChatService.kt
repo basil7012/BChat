@@ -1,9 +1,7 @@
 package com.bchat.app.services
 
 import android.util.Log
-import com.microsoft.signalr.HubConnection
-import com.microsoft.signalr.HubConnectionBuilder
-import com.microsoft.signalr.HubConnectionState
+import com.microsoft.signalr.*
 import com.microsoft.signalr.messagepack.MessagePackHubProtocol
 import io.reactivex.rxjava3.core.Single
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,9 +36,8 @@ class ChatService {
 
         _connectionStatus.value = ConnectionStatus.Connecting
 
-        val builder = HubConnectionBuilder()
-            .withUrl(url)
-            .withHubProtocol(MessagePackHubProtocol()) // Use MessagePack
+        val builder = HubConnectionBuilder.create(url)
+            .withHubProtocol(MessagePackHubProtocol())
             .withAutomaticReconnect()
             
         if (!token.isNullOrBlank()) {
@@ -49,23 +46,23 @@ class ChatService {
 
         hubConnection = builder.build()
 
-        hubConnection?.on("ReceiveMessage", { messageId: String, user: String, message: String, timestamp: Long, messageType: String, otherPersonId: String ->
+        hubConnection?.on("ReceiveMessage", Action6 { messageId: String, user: String, message: String, timestamp: Long, messageType: String, otherPersonId: String ->
             onMessageReceived?.invoke(messageId, user, message, timestamp, messageType, otherPersonId)
         }, String::class.java, String::class.java, String::class.java, Long::class.javaObjectType, String::class.java, String::class.java)
 
-        hubConnection?.on("UserTyping", { userId: String, isTyping: Boolean ->
+        hubConnection?.on("UserTyping", Action2 { userId: String, isTyping: Boolean ->
             onUserTyping?.invoke(userId, isTyping)
         }, String::class.java, Boolean::class.javaObjectType)
 
-        hubConnection?.on("MessageRead", { messageId: String, readerId: String ->
+        hubConnection?.on("MessageRead", Action2 { messageId: String, readerId: String ->
             onMessageRead?.invoke(messageId, readerId)
         }, String::class.java, String::class.java)
 
-        hubConnection?.on("MessageDeleted", { messageId: String ->
+        hubConnection?.on("MessageDeleted", Action1 { messageId: String ->
             onMessageDeleted?.invoke(messageId)
         }, String::class.java)
 
-        hubConnection?.on("UserPresence", { userId: String, isOnline: Boolean, lastSeen: String ->
+        hubConnection?.on("UserPresence", Action3 { userId: String, isOnline: Boolean, lastSeen: String ->
             onUserPresence?.invoke(userId, isOnline, lastSeen)
         }, String::class.java, Boolean::class.javaObjectType, String::class.java)
 
@@ -87,7 +84,13 @@ class ChatService {
     }
 
     fun sendMessage(receiverId: String, message: String, messageType: String, onResult: (String, Long) -> Unit, onError: () -> Unit) {
-        invokeHub("SendMessage", receiverId, message, messageType, onResult, onError)
+        // Use named arguments because of vararg
+        invokeHub(
+            method = "SendMessage", 
+            args = arrayOf(receiverId, message, messageType), 
+            onResult = onResult, 
+            onError = onError
+        )
     }
 
     fun sendTypingIndicator(receiverId: String, isTyping: Boolean) {
@@ -102,7 +105,7 @@ class ChatService {
         hubConnection?.send("DeleteMessage", messageId, receiverId)
     }
 
-    private fun invokeHub(method: String, vararg args: Any, onResult: (String, Long) -> Unit, onError: () -> Unit) {
+    private fun invokeHub(method: String, args: Array<Any>, onResult: (String, Long) -> Unit, onError: () -> Unit) {
         if (hubConnection?.connectionState == HubConnectionState.CONNECTED) {
             hubConnection?.invoke(ChatMessageResult::class.java, method, *args)
                 ?.subscribe({ result ->
