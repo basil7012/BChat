@@ -4,21 +4,29 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.*
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -40,7 +48,6 @@ fun ChatScreen(viewModel: ChatViewModel, onBack: () -> Unit, modifier: Modifier 
     val connectionStatus by viewModel.connectionStatus.collectAsStateWithLifecycle()
     val isUploading by viewModel.isUploading.collectAsStateWithLifecycle()
     val contact by viewModel.selectedContact.collectAsStateWithLifecycle()
-    val currentUserEmail by viewModel.currentUserEmail.collectAsStateWithLifecycle()
     val currentUserId by viewModel.currentUserId.collectAsStateWithLifecycle()
     val isContactTyping by viewModel.isContactTyping.collectAsStateWithLifecycle()
     val isContactOnline by viewModel.isContactOnline.collectAsStateWithLifecycle()
@@ -49,6 +56,7 @@ fun ChatScreen(viewModel: ChatViewModel, onBack: () -> Unit, modifier: Modifier 
     val listState = rememberLazyListState()
     val context = LocalContext.current
     var messageToDelete by remember { mutableStateOf<MessageEntity?>(null) }
+    val scope = rememberCoroutineScope()
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
@@ -62,7 +70,6 @@ fun ChatScreen(viewModel: ChatViewModel, onBack: () -> Unit, modifier: Modifier 
         }
     )
 
-    // Send typing indicator when text changes
     LaunchedEffect(inputText) {
         if (inputText.isNotEmpty()) {
             viewModel.sendTypingIndicator(true)
@@ -83,14 +90,30 @@ fun ChatScreen(viewModel: ChatViewModel, onBack: () -> Unit, modifier: Modifier 
         topBar = {
             TopAppBar(
                 title = { 
-                    Column {
-                        Text(contact?.userName ?: "Chat")
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            val presenceText = if (isContactOnline) "Online" else "Offline"
-                            val presenceColor = if (isContactOnline) Color.Green else Color.Gray
-                            Surface(modifier = Modifier.size(8.dp), shape = MaterialTheme.shapes.small, color = presenceColor) {}
-                            Spacer(Modifier.width(4.dp))
-                            Text(text = presenceText, style = MaterialTheme.typography.labelSmall)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                contact?.userName?.take(1)?.uppercase() ?: "?",
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column {
+                            Text(contact?.userName ?: "Chat", style = MaterialTheme.typography.titleMedium)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                val presenceText = if (isContactOnline) "Online" else "Offline"
+                                val presenceColor = if (isContactOnline) Color(0xFF4CAF50) else Color.Gray
+                                Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(presenceColor))
+                                Spacer(Modifier.width(4.dp))
+                                Text(text = presenceText, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                            }
                         }
                     }
                 },
@@ -98,119 +121,100 @@ fun ChatScreen(viewModel: ChatViewModel, onBack: () -> Unit, modifier: Modifier 
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+                )
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.padding(padding).fillMaxSize().padding(horizontal = 16.dp)) {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(vertical = 8.dp)
-            ) {
-                items(messages, key = { it.id }) { msg ->
-                    val isMe = msg.senderId == currentUserId
-                    
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        horizontalArrangement = if (isMe) Arrangement.End else Arrangement.Start
-                    ) {
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (isMe) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
-                            ),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                            modifier = Modifier
-                                .widthIn(max = 280.dp)
-                                .combinedClickable(
-                                    onClick = { },
-                                    onLongClick = { if (isMe && msg.messageId != null) messageToDelete = msg }
-                                )
-                        ) {
-                            Column(modifier = Modifier.padding(8.dp)) {
-                                if (msg.messageType == "image") {
-                                    AsyncImage(
-                                        model = msg.content,
-                                        contentDescription = "Image message",
-                                        modifier = Modifier.fillMaxWidth().height(200.dp).padding(vertical = 4.dp),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                } else {
-                                    Text(
-                                        text = msg.content,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = if (msg.isDeleted) Color.Gray else Color.Unspecified
-                                    )
-                                }
-
-                                Row(
-                                    modifier = Modifier.align(Alignment.End),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = msg.deliveryStatus,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontSize = 10.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    if (isMe) {
-                                        Spacer(Modifier.width(4.dp))
-                                        Icon(
-                                            imageVector = if (msg.isRead) Icons.Default.DoneAll else Icons.Default.Check,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(12.dp),
-                                            tint = if (msg.isRead) Color.Blue else Color.Gray
-                                        )
-                                    }
-                                }
-                            }
+        Box(modifier = Modifier
+            .padding(padding)
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(Color(0xFFF3F4F6), Color(0xFFE5E7EB))
+                )
+            )
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(messages, key = { it.id }) { msg ->
+                        val isMe = msg.senderId == currentUserId
+                        MessageBubble(msg, isMe) {
+                            if (isMe && msg.messageId != null) messageToDelete = msg
                         }
                     }
                 }
-            }
 
-            if (isContactTyping) {
-                Text(
-                    text = "${contact?.userName} is typing...",
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(bottom = 4.dp),
-                    color = MaterialTheme.colorScheme.secondary
-                )
-            }
-
-            if (isUploading) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                IconButton(
-                    onClick = { photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-                    enabled = connectionStatus == ConnectionStatus.Connected && !isUploading
+                // Bottom bar area
+                Surface(
+                    tonalElevation = 8.dp,
+                    shadowElevation = 8.dp,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Add Image")
-                }
-                
-                OutlinedTextField(
-                    value = inputText,
-                    onValueChange = { inputText = it },
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("Type a message") },
-                    enabled = connectionStatus == ConnectionStatus.Connected
-                )
-                Button(
-                    onClick = {
-                        if (inputText.isNotBlank()) {
-                            viewModel.sendMessage(inputText)
-                            inputText = ""
+                    Column {
+                        AnimatedVisibility(visible = isContactTyping) {
+                            Text(
+                                text = "${contact?.userName} is typing...",
+                                style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                                color = MaterialTheme.colorScheme.primary
+                            )
                         }
-                    },
-                    enabled = connectionStatus == ConnectionStatus.Connected && inputText.isNotBlank()
-                ) {
-                    Text("Send")
+                        if (isUploading) {
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        }
+                        Row(
+                            modifier = Modifier
+                                .padding(12.dp)
+                                .fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            IconButton(
+                                onClick = { photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                                enabled = connectionStatus == ConnectionStatus.Connected && !isUploading
+                            ) {
+                                Icon(Icons.Default.Image, contentDescription = "Gallery", tint = MaterialTheme.colorScheme.primary)
+                            }
+                            
+                            OutlinedTextField(
+                                value = inputText,
+                                onValueChange = { inputText = it },
+                                modifier = Modifier.weight(1f),
+                                placeholder = { Text("Type a message...", fontSize = 14.sp) },
+                                shape = RoundedCornerShape(24.dp),
+                                colors = TextFieldDefaults.outlinedTextFieldColors(
+                                    unfocusedBorderColor = Color.Transparent,
+                                    focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                ),
+                                enabled = connectionStatus == ConnectionStatus.Connected
+                            )
+                            
+                            FloatingActionButton(
+                                onClick = {
+                                    if (inputText.isNotBlank()) {
+                                        viewModel.sendMessage(inputText)
+                                        inputText = ""
+                                    }
+                                },
+                                modifier = Modifier.size(48.dp),
+                                shape = CircleShape,
+                                containerColor = if (inputText.isNotBlank()) MaterialTheme.colorScheme.primary else Color.Gray,
+                                contentColor = Color.White,
+                                elevation = FloatingActionButtonDefaults.elevation(0.dp)
+                            ) {
+                                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", modifier = Modifier.size(20.dp))
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -220,18 +224,94 @@ fun ChatScreen(viewModel: ChatViewModel, onBack: () -> Unit, modifier: Modifier 
         AlertDialog(
             onDismissRequest = { messageToDelete = null },
             title = { Text("Delete Message?") },
-            text = { Text("This will delete the message for everyone.") },
+            text = { Text("Do you want to delete this message for everyone?") },
             confirmButton = {
                 TextButton(onClick = {
                     messageToDelete?.messageId?.let { viewModel.deleteMessage(it) }
                     messageToDelete = null
-                }) { Text("Delete") }
+                }) { Text("Delete", color = Color.Red) }
             },
             dismissButton = {
                 TextButton(onClick = { messageToDelete = null }) { Text("Cancel") }
             }
         )
     }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun MessageBubble(msg: MessageEntity, isMe: Boolean, onLongClick: () -> Unit) {
+    val bubbleShape = if (isMe) {
+        RoundedCornerShape(16.dp, 16.dp, 2.dp, 16.dp)
+    } else {
+        RoundedCornerShape(16.dp, 16.dp, 16.dp, 2.dp)
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = if (isMe) Alignment.End else Alignment.Start
+    ) {
+        Surface(
+            color = if (isMe) MaterialTheme.colorScheme.primary else Color.White,
+            shape = bubbleShape,
+            tonalElevation = 2.dp,
+            shadowElevation = 1.dp,
+            modifier = Modifier
+                .widthIn(max = 300.dp)
+                .combinedClickable(
+                    onClick = { },
+                    onLongClick = onLongClick
+                )
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                if (msg.messageType == "image") {
+                    AsyncImage(
+                        model = msg.content,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 240.dp)
+                            .clip(RoundedCornerShape(8.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Text(
+                        text = msg.content,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (isMe) Color.White else Color.Black,
+                        fontSize = 15.sp
+                    )
+                }
+                
+                Row(
+                    modifier = Modifier.align(Alignment.End).padding(top = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = formatTime(msg.timestamp),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 10.sp,
+                        color = if (isMe) Color.White.copy(alpha = 0.7f) else Color.Gray
+                    )
+                    if (isMe) {
+                        Spacer(Modifier.width(4.dp))
+                        Icon(
+                            imageVector = if (msg.isRead) Icons.Default.DoneAll else Icons.Default.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = if (msg.isRead) Color(0xFF81D4FA) else Color.White.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun formatTime(timestamp: Long): String {
+    val date = java.util.Date(timestamp)
+    val sdf = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+    return sdf.format(date)
 }
 
 private fun uriToFile(context: android.content.Context, uri: Uri): File {

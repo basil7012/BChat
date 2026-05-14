@@ -83,10 +83,19 @@ class MainActivity : ComponentActivity() {
                             })
                         }
                         Screen.Contacts -> {
-                            ContactScreen(viewModel = viewModel, onContactClick = { contact ->
-                                viewModel.selectContact(contact)
-                                currentScreen = Screen.Chat
-                            })
+                            ContactScreen(
+                                viewModel = viewModel, 
+                                onContactClick = { contact ->
+                                    viewModel.selectContact(contact)
+                                    currentScreen = Screen.Chat
+                                },
+                                onLogout = {
+                                    lifecycleScope.launch {
+                                        authRepository.clearAuthData()
+                                        currentScreen = Screen.Login
+                                    }
+                                }
+                            )
                         }
                         Screen.Chat -> {
                             ChatScreen(
