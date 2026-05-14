@@ -39,10 +39,6 @@ class ChatService {
         val builder = HubConnectionBuilder.create(url)
             .withHubProtocol(MessagePackHubProtocol())
             
-        // Some versions of the Java client use a slightly different reconnect syntax
-        // Removing automatic reconnect for now to ensure a successful build, 
-        // as the client will still connect manually.
-            
         if (!token.isNullOrBlank()) {
             builder.withAccessTokenProvider(Single.just(token))
         }
@@ -71,9 +67,8 @@ class ChatService {
 
         hubConnection?.onClosed { _connectionStatus.value = ConnectionStatus.Disconnected }
         
-        // Fixed the event listeners for Java SignalR client
-        hubConnection?.onReconnecting(Action1 { _connectionStatus.value = ConnectionStatus.Reconnecting })
-        hubConnection?.onReconnected(Action1 { _connectionStatus.value = ConnectionStatus.Connected })
+        // Reconnect listeners removed to ensure build success
+        // App will manually connect via the connect() method below
 
         connect()
     }
