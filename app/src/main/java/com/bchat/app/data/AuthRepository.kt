@@ -31,11 +31,27 @@ class AuthRepository(private val context: Context, private val apiService: ApiSe
     suspend fun login(request: AuthRequest): Response<AuthResponse> {
         val response = apiService.login(request)
         if (response.isSuccessful) {
-            response.body()?.let {
-                saveAuthData(it.token, it.email, it.userId)
+            response.body()?.let { body ->
+                // If the server didn't send the userId in the body, 
+                // we extract it from the JWT token claims.
+                val userId = body.userId ?: extractUserIdFromToken(body.token) ?: ""
+                saveAuthData(body.token, body.email, userId)
             }
         }
         return response
+    }
+
+    private fun extractUserIdFromToken(token: String): String? {
+        return try {
+            val parts = token.split(".")
+            if (parts.size < 2) return null
+            val payload = String(android.util.Base64.decode(parts[1], android.util.Base64.DEFAULT))
+            val json = org.json.JSONObject(payload)
+            // SignalR uses the NameIdentifier claim, which is "nameid" or "sub" in JWT
+            json.optString("nameid") ?: json.optString("sub")
+        } catch (e: Exception) {
+            null
+        }
     }
 
     suspend fun getUsers() = apiService.getUsers()

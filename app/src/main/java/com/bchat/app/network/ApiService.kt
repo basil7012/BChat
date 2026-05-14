@@ -10,7 +10,7 @@ data class AuthRequest(val email: String, val password: String)
 data class AuthResponse(
     @SerializedName("token") val token: String,
     @SerializedName("email") val email: String,
-    @SerializedName("userId") val userId: String
+    @SerializedName("userId") val userId: String?
 )
 data class User(val id: String, val email: String, val userName: String)
 data class UploadResponse(val url: String)
