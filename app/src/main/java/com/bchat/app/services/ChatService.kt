@@ -16,7 +16,7 @@ enum class ConnectionStatus {
 
 class ChatMessageResult {
     var messageId: String = ""
-    var timestamp: String = ""
+    var timestamp: Long = 0
 }
 
 class ChatService {
@@ -49,14 +49,13 @@ class ChatService {
 
         hubConnection = builder.build()
 
-        hubConnection?.on("ReceiveMessage", { messageId: String, user: String, message: String, timestampStr: String, messageType: String, otherPersonId: String ->
-            val timestamp = System.currentTimeMillis()
+        hubConnection?.on("ReceiveMessage", { messageId: String, user: String, message: String, timestamp: Long, messageType: String, otherPersonId: String ->
             onMessageReceived?.invoke(messageId, user, message, timestamp, messageType, otherPersonId)
-        }, String::class.java, String::class.java, String::class.java, String::class.java, String::class.java, String::class.java)
+        }, String::class.java, String::class.java, String::class.java, Long::class.javaObjectType, String::class.java, String::class.java)
 
         hubConnection?.on("UserTyping", { userId: String, isTyping: Boolean ->
             onUserTyping?.invoke(userId, isTyping)
-        }, String::class.java, Boolean::class.java)
+        }, String::class.java, Boolean::class.javaObjectType)
 
         hubConnection?.on("MessageRead", { messageId: String, readerId: String ->
             onMessageRead?.invoke(messageId, readerId)
@@ -68,7 +67,7 @@ class ChatService {
 
         hubConnection?.on("UserPresence", { userId: String, isOnline: Boolean, lastSeen: String ->
             onUserPresence?.invoke(userId, isOnline, lastSeen)
-        }, String::class.java, Boolean::class.java, String::class.java)
+        }, String::class.java, Boolean::class.javaObjectType, String::class.java)
 
         hubConnection?.onClosed { _connectionStatus.value = ConnectionStatus.Disconnected }
         hubConnection?.onReconnecting { _connectionStatus.value = ConnectionStatus.Reconnecting }
@@ -107,7 +106,7 @@ class ChatService {
         if (hubConnection?.connectionState == HubConnectionState.CONNECTED) {
             hubConnection?.invoke(ChatMessageResult::class.java, method, *args)
                 ?.subscribe({ result ->
-                    onResult(result.messageId, System.currentTimeMillis())
+                    onResult(result.messageId, result.timestamp)
                 }, { error ->
                     Log.e("ChatService", "Error invoking $method", error)
                     onError()
