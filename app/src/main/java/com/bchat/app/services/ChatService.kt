@@ -2,7 +2,6 @@ package com.bchat.app.services
 
 import android.util.Log
 import com.microsoft.signalr.*
-import com.microsoft.signalr.messagepack.MessagePackHubProtocol
 import io.reactivex.rxjava3.core.Single
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,21 +30,25 @@ class ChatService {
 
     fun startConnection(url: String, token: String?) {
         if (hubConnection?.connectionState == HubConnectionState.CONNECTED) {
+            Log.d("ChatService", "Already connected")
             return
         }
 
+        Log.d("ChatService", "Starting connection to $url")
         _connectionStatus.value = ConnectionStatus.Connecting
 
+        // Using standard JSON protocol for maximum compatibility
         val builder = HubConnectionBuilder.create(url)
-            .withHubProtocol(MessagePackHubProtocol())
             
         if (!token.isNullOrBlank()) {
+            Log.d("ChatService", "Using token for authentication")
             builder.withAccessTokenProvider(Single.just(token))
         }
 
         hubConnection = builder.build()
 
         hubConnection?.on("ReceiveMessage", Action6 { messageId: String, user: String, message: String, timestamp: Long, messageType: String, otherPersonId: String ->
+            Log.d("ChatService", "Message received from $user")
             onMessageReceived?.invoke(messageId, user, message, timestamp, messageType, otherPersonId)
         }, String::class.java, String::class.java, String::class.java, Long::class.javaObjectType, String::class.java, String::class.java)
 
@@ -62,13 +65,14 @@ class ChatService {
         }, String::class.java)
 
         hubConnection?.on("UserPresence", Action3 { userId: String, isOnline: Boolean, lastSeen: String ->
+            Log.d("ChatService", "User Presence: $userId, online: $isOnline")
             onUserPresence?.invoke(userId, isOnline, lastSeen)
         }, String::class.java, Boolean::class.javaObjectType, String::class.java)
 
-        hubConnection?.onClosed { _connectionStatus.value = ConnectionStatus.Disconnected }
-        
-        // Reconnect listeners removed to ensure build success
-        // App will manually connect via the connect() method below
+        hubConnection?.onClosed { 
+            Log.d("ChatService", "Connection closed")
+            _connectionStatus.value = ConnectionStatus.Disconnected 
+        }
 
         connect()
     }
@@ -76,6 +80,7 @@ class ChatService {
     private fun connect() {
         try {
             hubConnection?.start()?.blockingAwait()
+            Log.d("ChatService", "Connection established successfully")
             _connectionStatus.value = ConnectionStatus.Connected
         } catch (e: Exception) {
             Log.e("ChatService", "Error starting connection", e)
@@ -84,12 +89,7 @@ class ChatService {
     }
 
     fun sendMessage(receiverId: String, message: String, messageType: String, onResult: (String, Long) -> Unit, onError: () -> Unit) {
-        invokeHub(
-            method = "SendMessage", 
-            args = arrayOf(receiverId, message, messageType), 
-            onResult = onResult, 
-            onError = onError
-        )
+        invokeHub("SendMessage", arrayOf(receiverId, message, messageType), onResult, onError)
     }
 
     fun sendTypingIndicator(receiverId: String, isTyping: Boolean) {
@@ -114,6 +114,7 @@ class ChatService {
                     onError()
                 })
         } else {
+            Log.w("ChatService", "Cannot invoke $method: Not connected")
             onError()
         }
     }

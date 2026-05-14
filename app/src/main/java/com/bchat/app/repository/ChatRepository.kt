@@ -6,6 +6,7 @@ import com.bchat.app.data.MessageEntity
 import com.bchat.app.security.EncryptionService
 import com.bchat.app.services.ChatService
 import com.bchat.app.services.ConnectionStatus
+import com.bchat.app.services.NotificationHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -20,7 +21,8 @@ class ChatRepository(
     private val messageDao: MessageDao,
     private val chatService: ChatService,
     private val authRepository: AuthRepository,
-    private val coroutineScope: CoroutineScope
+    private val coroutineScope: CoroutineScope,
+    private val context: android.content.Context
 ) {
     val messages: Flow<List<MessageEntity>> = messageDao.getAllMessages()
     val connectionStatus: Flow<ConnectionStatus> = chatService.connectionStatus
@@ -41,14 +43,20 @@ class ChatRepository(
                 if (existingMessage == null) {
                     val entity = MessageEntity(
                         messageId = messageId,
-                        senderId = otherPersonId, // In an incoming message, otherPersonId is the sender GUID
+                        senderId = otherPersonId,
                         content = decryptedContent,
                         timestamp = timestamp,
                         deliveryStatus = "Delivered",
                         messageType = messageType,
-                        receiverId = _currentUserId // This should be my GUID
+                        receiverId = _currentUserId
                     )
                     messageDao.insert(entity)
+                    
+                    NotificationHelper.showNotification(
+                        context,
+                        "New Message from $user",
+                        if (messageType == "text") decryptedContent else "Sent an image"
+                    )
                 } else {
                     messageDao.updateDeliveryStatus(existingMessage.id, messageId, timestamp, "Delivered")
                 }

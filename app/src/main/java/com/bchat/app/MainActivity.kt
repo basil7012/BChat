@@ -48,7 +48,7 @@ class MainActivity : ComponentActivity() {
     private val authRepository by lazy { AuthRepository(this, apiService) }
     private val database by lazy { AppDatabase.getDatabase(this) }
     private val chatService by lazy { ChatService() }
-    private val repository by lazy { ChatRepository(database.messageDao(), chatService, authRepository, lifecycleScope) }
+    private val repository by lazy { ChatRepository(database.messageDao(), chatService, authRepository, lifecycleScope, this) }
 
     private val viewModel: ChatViewModel by viewModels {
         ChatViewModelFactory(repository)
