@@ -10,6 +10,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import com.bchat.app.data.AppDatabase
 import com.bchat.app.data.AuthRepository
 import com.bchat.app.network.ApiService
