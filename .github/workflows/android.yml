@@ -26,7 +26,7 @@ jobs:
     - name: Create Dummy Google Services JSON
       run: |
         if [ ! -f app/google-services.json ]; then
-          echo '{"project_info":{"project_number":"123","project_id":"dummy"},"client":[{"client_info":{"mobilesdk_app_id":"1:123:android:123"},"api_key":[{"current_key":"dummy"}]}]}' > app/google-services.json
+          echo '{"project_info":{"project_number":"123","project_id":"dummy"},"client":[{"client_info":{"mobilesdk_app_id":"1:123:android:123","android_client_info":{"package_name":"com.bchat.app"}},"api_key":[{"current_key":"dummy"}]}]}' > app/google-services.json
         fi
 
     - name: Build with Gradle
