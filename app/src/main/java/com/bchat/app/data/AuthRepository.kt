@@ -47,8 +47,11 @@ class AuthRepository(private val context: Context, private val apiService: ApiSe
             if (parts.size < 2) return null
             val payload = String(android.util.Base64.decode(parts[1], android.util.Base64.DEFAULT))
             val json = org.json.JSONObject(payload)
-            // SignalR uses the NameIdentifier claim, which is "nameid" or "sub" in JWT
-            json.optString("nameid") ?: json.optString("sub")
+            // ASP.NET Core Identity uses the full URI for the NameIdentifier claim
+            val nameIdKey = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+            json.optString(nameIdKey).takeIf { it.isNotEmpty() } 
+                ?: json.optString("nameid").takeIf { it.isNotEmpty() }
+                ?: json.optString("sub")
         } catch (e: Exception) {
             null
         }
