@@ -115,10 +115,10 @@ fun LoginScreen(authRepository: AuthRepository, onLoginSuccess: () -> Unit) {
                                         onLoginSuccess()
                                     }
                                 } else {
-                                    errorMessage = "Error: Invalid credentials"
+                                    errorMessage = "Login Failed (${response.code()}): ${response.errorBody()?.string() ?: "Unknown error"}"
                                 }
                             } catch (e: Exception) {
-                                errorMessage = "Connection failed"
+                                errorMessage = "Network Error: ${e.localizedMessage}"
                             } finally {
                                 isLoading = false
                             }

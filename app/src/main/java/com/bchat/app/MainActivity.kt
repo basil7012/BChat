@@ -80,7 +80,7 @@ class MainActivity : ComponentActivity() {
                     when (currentScreen) {
                         Screen.Login -> {
                             LoginScreen(authRepository = authRepository, onLoginSuccess = {
-                                // Handled by LaunchedEffect
+                                currentScreen = Screen.Contacts
                             })
                         }
                         Screen.Contacts -> {

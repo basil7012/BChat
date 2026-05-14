@@ -4,8 +4,14 @@ import okhttp3.MultipartBody
 import retrofit2.Response
 import retrofit2.http.*
 
+import com.google.gson.annotations.SerializedName
+
 data class AuthRequest(val email: String, val password: String)
-data class AuthResponse(val token: String, val email: String, val userId: String)
+data class AuthResponse(
+    @SerializedName("token") val token: String,
+    @SerializedName("email") val email: String,
+    @SerializedName("userId") val userId: String
+)
 data class User(val id: String, val email: String, val userName: String)
 data class UploadResponse(val url: String)
 
