@@ -25,7 +25,6 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
-            isCruncherEnabled = false   // skip AAPT2 strict PNG validation on release
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
