@@ -2,7 +2,6 @@ package com.bchat.app.services
 
 import android.util.Log
 import com.microsoft.signalr.*
-import com.microsoft.signalr.messagepack.MessagePackHubProtocol
 import io.reactivex.rxjava3.core.Single
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -41,10 +40,13 @@ class ChatService {
         Log.d("ChatService", "Starting connection to $url")
         _connectionStatus.value = ConnectionStatus.Connecting
 
-        // Using high-efficiency binary MessagePack protocol for sub-second serialization
+        // Use standard JSON protocol — MonsterASP.NET backend has not been redeployed
+        // with AddMessagePackProtocol() yet. JSON is the universal fallback that always works.
         val builder = HubConnectionBuilder.create(url)
-            .withHubProtocol(MessagePackHubProtocol())
-            
+            // Force Long Polling transport — MonsterASP.NET shared IIS hosting
+            // blocks WebSocket upgrades. Long Polling works on any HTTP host.
+            .withTransport(HttpTransportType.LONG_POLLING)
+
         if (!token.isNullOrBlank()) {
             Log.d("ChatService", "Attaching JWT to SignalR handshake")
             builder.withAccessTokenProvider(Single.just(token))
@@ -53,12 +55,12 @@ class ChatService {
 
         hubConnection = builder.build()
 
-        // Configure aggressive maintainers to prevent packet queue buffering on shared networks
-        hubConnection?.setKeepAliveInterval(5000L) // 5 seconds
-        hubConnection?.setServerTimeout(10000L)    // 10 seconds
+        // Keep-alive tuned for Long Polling over shared hosting latency
+        hubConnection?.setKeepAliveInterval(15000L)  // 15 seconds (relaxed for LP)
+        hubConnection?.setServerTimeout(30000L)       // 30 seconds
 
         hubConnection?.on("ReceiveMessage", Action6 { messageId: String, user: String, message: String, timestamp: Long, messageType: String, otherPersonId: String ->
-            Log.d("ChatService", "Message received from $user")
+            Log.d("ChatService", "✅ Message received from $user (id=$messageId)")
             onMessageReceived?.invoke(messageId, user, message, timestamp, messageType, otherPersonId)
         }, String::class.java, String::class.java, String::class.java, Long::class.javaObjectType, String::class.java, String::class.java)
 
@@ -79,9 +81,9 @@ class ChatService {
             onUserPresence?.invoke(userId, isOnline, lastSeen)
         }, String::class.java, Boolean::class.javaObjectType, String::class.java)
 
-        hubConnection?.onClosed { 
-            Log.d("ChatService", "Connection closed")
-            _connectionStatus.value = ConnectionStatus.Disconnected 
+        hubConnection?.onClosed { error ->
+            Log.w("ChatService", "Connection closed: ${error?.message}")
+            _connectionStatus.value = ConnectionStatus.Disconnected
         }
 
         connect()
@@ -90,14 +92,10 @@ class ChatService {
     private fun connect() {
         try {
             hubConnection?.start()?.blockingAwait()
-            Log.d("ChatService", "Connection established successfully")
-            
-            // If start() completes without exception, the configured MessagePack protocol negotiated successfully
-            Log.d("ChatService", "SUCCESS: High-performance binary MessagePack Hub Protocol negotiated and active!")
-            
+            Log.d("ChatService", "✅ SignalR connected successfully (Long Polling / JSON)")
             _connectionStatus.value = ConnectionStatus.Connected
         } catch (e: Exception) {
-            Log.e("ChatService", "Error starting connection", e)
+            Log.e("ChatService", "❌ SignalR connection failed: ${e.message}", e)
             _connectionStatus.value = ConnectionStatus.Disconnected
         }
     }
@@ -110,7 +108,7 @@ class ChatService {
         if (hubConnection?.connectionState == HubConnectionState.CONNECTED) {
             hubConnection?.send("SendTypingIndicator", receiverId, isTyping)
         } else {
-            Log.w("ChatService", "Cannot send typing indicator: SignalR connection is not active.")
+            Log.w("ChatService", "Cannot send typing indicator: SignalR not connected")
         }
     }
 
@@ -118,7 +116,7 @@ class ChatService {
         if (hubConnection?.connectionState == HubConnectionState.CONNECTED) {
             hubConnection?.send("MarkAsRead", messageId, senderId)
         } else {
-            Log.w("ChatService", "Cannot mark message as read: SignalR connection is not active.")
+            Log.w("ChatService", "Cannot mark as read: SignalR not connected")
         }
     }
 
@@ -126,7 +124,7 @@ class ChatService {
         if (hubConnection?.connectionState == HubConnectionState.CONNECTED) {
             hubConnection?.send("DeleteMessage", messageId, receiverId)
         } else {
-            Log.w("ChatService", "Cannot delete message: SignalR connection is not active.")
+            Log.w("ChatService", "Cannot delete message: SignalR not connected")
         }
     }
 
@@ -134,9 +132,10 @@ class ChatService {
         if (hubConnection?.connectionState == HubConnectionState.CONNECTED) {
             hubConnection?.invoke(ChatMessageResult::class.java, method, *args)
                 ?.subscribe({ result ->
+                    Log.d("ChatService", "✅ $method success: messageId=${result.messageId}")
                     onResult(result.messageId, result.timestamp)
                 }, { error ->
-                    Log.e("ChatService", "Error invoking $method", error)
+                    Log.e("ChatService", "❌ Error invoking $method: ${error.message}", error)
                     onError()
                 })
         } else {

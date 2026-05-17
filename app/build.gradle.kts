@@ -54,9 +54,8 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
     
-    // SignalR Client
+    // SignalR Client (JSON protocol — compatible with all ASP.NET Core SignalR servers)
     implementation("com.microsoft.signalr:signalr:7.0.0")
-    implementation("com.microsoft.signalr.messagepack:signalr-messagepack:7.0.0")
     implementation("io.reactivex.rxjava3:rxjava:3.1.8")
 
     // Room Database
