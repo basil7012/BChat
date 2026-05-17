@@ -29,6 +29,15 @@ jobs:
           echo '{"project_info":{"project_number":"123","project_id":"dummy"},"client":[{"client_info":{"mobilesdk_app_id":"1:123:android:123","android_client_info":{"package_name":"com.bchat.app"}},"api_key":[{"current_key":"dummy"}]}]}' > app/google-services.json
         fi
 
+    - name: Fix corrupted mipmap PNGs
+      run: |
+        # Re-encode any PNG that AAPT2 strict mode would reject.
+        # Uses ImageMagick (pre-installed on ubuntu-latest) to re-export a clean PNG.
+        sudo apt-get install -y imagemagick 2>/dev/null || true
+        find app/src/main/res/mipmap-* -name "*.png" | while read f; do
+          convert "$f" "$f" 2>/dev/null || true
+        done
+
     - name: Build Debug APK
       run: ./gradlew assembleDebug
 

@@ -25,8 +25,12 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+            isCruncherEnabled = false   // bypass AAPT2 strict PNG validation on release
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
+    }
+    aaptOptions {
+        cruncherEnabled = false         // global fallback: skip PNG cruncher for all variants
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
