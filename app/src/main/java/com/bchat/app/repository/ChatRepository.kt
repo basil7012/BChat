@@ -7,10 +7,13 @@ import com.bchat.app.security.EncryptionService
 import com.bchat.app.services.ChatService
 import com.bchat.app.services.ConnectionStatus
 import com.bchat.app.services.NotificationHelper
+import com.bchat.app.ui.IncomingMessageAlert
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
@@ -26,6 +29,10 @@ class ChatRepository(
 ) {
     val messages: Flow<List<MessageEntity>> = messageDao.getAllMessages()
     val connectionStatus: Flow<ConnectionStatus> = chatService.connectionStatus
+
+    // Emits a banner alert whenever a brand-new inbound message arrives
+    private val _incomingAlerts = MutableSharedFlow<IncomingMessageAlert>(extraBufferCapacity = 1)
+    val incomingAlerts: SharedFlow<IncomingMessageAlert> = _incomingAlerts
 
     private val _isTyping = MutableStateFlow<Map<String, Boolean>>(emptyMap())
     val isTyping: StateFlow<Map<String, Boolean>> = _isTyping.asStateFlow()
@@ -54,7 +61,11 @@ class ChatRepository(
                         receiverId = activeUserId
                     )
                     messageDao.insert(entity)
-                    
+
+                    // Fire the global in-app banner alert
+                    val preview = if (messageType == "text") decryptedContent else "📷 Photo"
+                    _incomingAlerts.tryEmit(IncomingMessageAlert(senderName = user, preview = preview))
+
                     NotificationHelper.showNotification(
                         context,
                         "New Message from $user",

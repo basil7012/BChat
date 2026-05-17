@@ -12,6 +12,9 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import okhttp3.MultipartBody
 
+/** Lightweight payload surfaced to the global notification banner. */
+data class IncomingMessageAlert(val senderName: String, val preview: String)
+
 class ChatViewModel(private val repository: ChatRepository) : ViewModel() {
 
     private val _selectedContact = MutableStateFlow<User?>(null)
@@ -55,6 +58,17 @@ class ChatViewModel(private val repository: ChatRepository) : ViewModel() {
 
     private val _isUploading = MutableStateFlow(false)
     val isUploading: StateFlow<Boolean> = _isUploading.asStateFlow()
+
+    // ── Global notification banner ────────────────────────────────────────────
+    private val _lastReceivedMessage = MutableSharedFlow<IncomingMessageAlert>(extraBufferCapacity = 1)
+    val lastReceivedMessage: SharedFlow<IncomingMessageAlert> = _lastReceivedMessage
+
+    init {
+        // Emit a banner alert whenever a new message lands from any sender
+        viewModelScope.launch {
+            repository.incomingAlerts.collect { alert -> _lastReceivedMessage.tryEmit(alert) }
+        }
+    }
 
     fun setCurrentUserEmail(email: String) { _currentUserEmail.value = email }
     fun setCurrentUserId(id: String) { _currentUserId.value = id }

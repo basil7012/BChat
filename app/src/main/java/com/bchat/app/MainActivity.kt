@@ -4,12 +4,26 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Message
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.bchat.app.data.AppDatabase
 import com.bchat.app.data.AuthRepository
@@ -69,6 +83,29 @@ class MainActivity : ComponentActivity() {
                     
                     var currentScreen by remember { mutableStateOf(Screen.Login) }
 
+                    // ── Global notification banner state ───────────────────────────────
+                    var bannerAlert by remember { mutableStateOf<IncomingMessageAlert?>(null) }
+                    var bannerKey by remember { mutableStateOf(0) }   // increments to reset timer
+
+                    // Collect incoming message alerts from any screen
+                    LaunchedEffect(Unit) {
+                        viewModel.lastReceivedMessage.collect { alert ->
+                            // Only show banner when the user is NOT already on the Chat screen
+                            if (currentScreen != Screen.Chat) {
+                                bannerAlert = alert
+                                bannerKey++          // reset the 4-second dismissal timer
+                            }
+                        }
+                    }
+
+                    // Auto-dismiss the banner after 4 seconds; bannerKey resets the timer
+                    LaunchedEffect(bannerKey) {
+                        if (bannerAlert != null) {
+                            delay(4000)
+                            bannerAlert = null
+                        }
+                    }
+
                     LaunchedEffect(token, email, userId) {
                         if (!token.isNullOrBlank() && !email.isNullOrBlank() && !userId.isNullOrBlank()) {
                             viewModel.setCurrentUserEmail(email!!)
@@ -82,32 +119,120 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    when (currentScreen) {
-                        Screen.Login -> {
-                            LoginScreen(authRepository = authRepository, onLoginSuccess = {
-                                currentScreen = Screen.Contacts
-                            })
+                    // ── Root layered Box: screens + floating banner overlay ────────────
+                    Box(modifier = Modifier.fillMaxSize()) {
+
+                        // Primary navigation host
+                        when (currentScreen) {
+                            Screen.Login -> {
+                                LoginScreen(authRepository = authRepository, onLoginSuccess = {
+                                    currentScreen = Screen.Contacts
+                                })
+                            }
+                            Screen.Contacts -> {
+                                ContactScreen(
+                                    viewModel = viewModel, 
+                                    onContactClick = { contact ->
+                                        viewModel.selectContact(contact)
+                                        currentScreen = Screen.Chat
+                                    },
+                                    onLogout = {
+                                        lifecycleScope.launch {
+                                            authRepository.clearAuthData()
+                                            currentScreen = Screen.Login
+                                        }
+                                    }
+                                )
+                            }
+                            Screen.Chat -> {
+                                ChatScreen(
+                                    viewModel = viewModel,
+                                    onBack = { currentScreen = Screen.Contacts }
+                                )
+                            }
                         }
-                        Screen.Contacts -> {
-                            ContactScreen(
-                                viewModel = viewModel, 
-                                onContactClick = { contact ->
-                                    viewModel.selectContact(contact)
-                                    currentScreen = Screen.Chat
-                                },
-                                onLogout = {
-                                    lifecycleScope.launch {
-                                        authRepository.clearAuthData()
-                                        currentScreen = Screen.Login
+
+                        // ── Global in-app notification banner ─────────────────────────
+                        AnimatedVisibility(
+                            visible = bannerAlert != null,
+                            enter = slideInVertically(
+                                initialOffsetY = { -it },
+                                animationSpec = tween(350)
+                            ) + fadeIn(animationSpec = tween(350)),
+                            exit = slideOutVertically(
+                                targetOffsetY = { -it },
+                                animationSpec = tween(300)
+                            ) + fadeOut(animationSpec = tween(300)),
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .padding(horizontal = 16.dp, vertical = 48.dp)
+                        ) {
+                            bannerAlert?.let { alert ->
+                                Card(
+                                    onClick = {
+                                        bannerAlert = null
+                                        currentScreen = Screen.Chat
+                                    },
+                                    shape = RoundedCornerShape(20.dp),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 16.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(
+                                                Brush.horizontalGradient(
+                                                    colors = listOf(Color(0xFF6366F1), Color(0xFF8B5CF6))
+                                                )
+                                            )
+                                            .padding(horizontal = 16.dp, vertical = 14.dp)
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        ) {
+                                            // Icon bubble
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(40.dp)
+                                                    .clip(RoundedCornerShape(12.dp))
+                                                    .background(Color.White.copy(alpha = 0.2f)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Message,
+                                                    contentDescription = null,
+                                                    tint = Color.White,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                            // Text content
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = alert.senderName,
+                                                    fontSize = 13.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color.White
+                                                )
+                                                Spacer(Modifier.height(2.dp))
+                                                Text(
+                                                    text = alert.preview,
+                                                    fontSize = 12.sp,
+                                                    color = Color.White.copy(alpha = 0.85f),
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                            Text(
+                                                text = "Tap to view",
+                                                fontSize = 11.sp,
+                                                color = Color.White.copy(alpha = 0.7f),
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
                                     }
                                 }
-                            )
-                        }
-                        Screen.Chat -> {
-                            ChatScreen(
-                                viewModel = viewModel,
-                                onBack = { currentScreen = Screen.Contacts }
-                            )
+                            }
                         }
                     }
                 }

@@ -35,6 +35,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.bchat.app.data.MessageEntity
 import com.bchat.app.services.ConnectionStatus
+import androidx.activity.compose.BackHandler
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -183,6 +184,9 @@ fun ChatScreen(viewModel: ChatViewModel, onBack: () -> Unit, modifier: Modifier 
     val isContactOnline by viewModel.isContactOnline.collectAsStateWithLifecycle()
     
     var inputText by remember { mutableStateOf("") }
+
+    // Hardware / gesture back button: navigate back to Contacts instead of minimizing the app
+    BackHandler { onBack() }
     val listState = rememberLazyListState()
     val context = LocalContext.current
     var messageToDelete by remember { mutableStateOf<MessageEntity?>(null) }
@@ -372,7 +376,8 @@ fun ChatScreen(viewModel: ChatViewModel, onBack: () -> Unit, modifier: Modifier 
                                 unfocusedIndicatorColor = Color.Transparent,
                                 disabledIndicatorColor = Color.Transparent
                             ),
-                            enabled = connectionStatus == ConnectionStatus.Connected,
+                            // Always allow typing; only the Send button is gated on connection status
+                            enabled = true,
                             maxLines = 4
                         )
 
