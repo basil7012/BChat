@@ -2,6 +2,7 @@ package com.bchat.app.services
 
 import android.util.Log
 import com.microsoft.signalr.*
+import com.microsoft.signalr.messagepack.MessagePackHubProtocol
 import io.reactivex.rxjava3.core.Single
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -40,8 +41,9 @@ class ChatService {
         Log.d("ChatService", "Starting connection to $url")
         _connectionStatus.value = ConnectionStatus.Connecting
 
-        // Using standard JSON protocol for maximum compatibility
+        // Using high-efficiency binary MessagePack protocol for sub-second serialization
         val builder = HubConnectionBuilder.create(url)
+            .withHubProtocol(MessagePackHubProtocol())
             
         if (!token.isNullOrBlank()) {
             Log.d("ChatService", "Using token for authentication")
@@ -49,6 +51,10 @@ class ChatService {
         }
 
         hubConnection = builder.build()
+
+        // Configure aggressive maintainers to prevent packet queue buffering on shared networks
+        hubConnection?.setKeepAliveInterval(5000L) // 5 seconds
+        hubConnection?.setServerTimeout(10000L)    // 10 seconds
 
         hubConnection?.on("ReceiveMessage", Action6 { messageId: String, user: String, message: String, timestamp: Long, messageType: String, otherPersonId: String ->
             Log.d("ChatService", "Message received from $user")
@@ -84,6 +90,10 @@ class ChatService {
         try {
             hubConnection?.start()?.blockingAwait()
             Log.d("ChatService", "Connection established successfully")
+            
+            // If start() completes without exception, the configured MessagePack protocol negotiated successfully
+            Log.d("ChatService", "SUCCESS: High-performance binary MessagePack Hub Protocol negotiated and active!")
+            
             _connectionStatus.value = ConnectionStatus.Connected
         } catch (e: Exception) {
             Log.e("ChatService", "Error starting connection", e)
@@ -96,15 +106,27 @@ class ChatService {
     }
 
     fun sendTypingIndicator(receiverId: String, isTyping: Boolean) {
-        hubConnection?.send("SendTypingIndicator", receiverId, isTyping)
+        if (hubConnection?.connectionState == HubConnectionState.CONNECTED) {
+            hubConnection?.send("SendTypingIndicator", receiverId, isTyping)
+        } else {
+            Log.w("ChatService", "Cannot send typing indicator: SignalR connection is not active.")
+        }
     }
 
     fun markAsRead(messageId: String, senderId: String) {
-        hubConnection?.send("MarkAsRead", messageId, senderId)
+        if (hubConnection?.connectionState == HubConnectionState.CONNECTED) {
+            hubConnection?.send("MarkAsRead", messageId, senderId)
+        } else {
+            Log.w("ChatService", "Cannot mark message as read: SignalR connection is not active.")
+        }
     }
 
     fun deleteMessage(messageId: String, receiverId: String) {
-        hubConnection?.send("DeleteMessage", messageId, receiverId)
+        if (hubConnection?.connectionState == HubConnectionState.CONNECTED) {
+            hubConnection?.send("DeleteMessage", messageId, receiverId)
+        } else {
+            Log.w("ChatService", "Cannot delete message: SignalR connection is not active.")
+        }
     }
 
     private fun invokeHub(method: String, args: Array<Any>, onResult: (String, Long) -> Unit, onError: () -> Unit) {

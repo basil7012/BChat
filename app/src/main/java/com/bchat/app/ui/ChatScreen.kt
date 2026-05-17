@@ -376,7 +376,7 @@ fun ChatScreen(viewModel: ChatViewModel, onBack: () -> Unit, modifier: Modifier 
                             maxLines = 4
                         )
 
-                        val hasText = inputText.isNotBlank()
+                        val hasText by remember { derivedStateOf { inputText.isNotBlank() } }
                         val sendButtonColor by animateColorAsState(
                             targetValue = if (hasText) MaterialTheme.colorScheme.primary else Color(0xFFE2E8F0),
                             label = "color"
@@ -412,6 +412,43 @@ fun ChatScreen(viewModel: ChatViewModel, onBack: () -> Unit, modifier: Modifier 
                             )
                         }
                     }
+                }
+            }
+
+            // High-performance Floating Action Button to scroll to bottom, optimized with derivedStateOf
+            val showScrollToBottom by remember {
+                derivedStateOf {
+                    listState.firstVisibleItemIndex > 2
+                }
+            }
+
+            AnimatedVisibility(
+                visible = showScrollToBottom,
+                enter = fadeIn() + scaleIn(),
+                exit = fadeOut() + scaleOut(),
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 24.dp, bottom = 96.dp)
+            ) {
+                FloatingActionButton(
+                    onClick = {
+                        scope.launch {
+                            if (messages.isNotEmpty()) {
+                                listState.animateScrollToItem(messages.size - 1)
+                            }
+                        }
+                    },
+                    shape = CircleShape,
+                    containerColor = Color.White,
+                    contentColor = Color(0xFF6366F1),
+                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 8.dp),
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowDown,
+                        contentDescription = "Scroll to bottom",
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
             }
         }
