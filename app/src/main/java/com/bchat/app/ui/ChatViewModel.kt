@@ -50,6 +50,9 @@ class ChatViewModel(private val repository: ChatRepository) : ViewModel() {
         contact?.let { presenceMap[it.id] ?: false } ?: false
     }.stateIn(viewModelScope, SharingStarted.Lazily, false)
 
+    val userPresence: StateFlow<Map<String, Boolean>> = repository.userPresence
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyMap())
+
     private val _isUploading = MutableStateFlow(false)
     val isUploading: StateFlow<Boolean> = _isUploading.asStateFlow()
 

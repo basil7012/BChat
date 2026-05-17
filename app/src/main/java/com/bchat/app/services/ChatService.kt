@@ -12,7 +12,10 @@ enum class ConnectionStatus {
 }
 
 class ChatMessageResult {
+    @com.google.gson.annotations.SerializedName("messageId", alternate = ["MessageId"])
     var messageId: String = ""
+    
+    @com.google.gson.annotations.SerializedName("timestamp", alternate = ["Timestamp"])
     var timestamp: Long = 0
 }
 

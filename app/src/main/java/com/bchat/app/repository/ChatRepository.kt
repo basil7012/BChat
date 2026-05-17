@@ -40,6 +40,9 @@ class ChatRepository(
             coroutineScope.launch {
                 val decryptedContent = if (messageType == "text") EncryptionService.decrypt(encryptedMessage) else encryptedMessage
                 val existingMessage = messageDao.getMessageByServerId(messageId)
+                val activeUserId = _currentUserId.ifBlank {
+                    authRepository.userId.firstOrNull() ?: ""
+                }
                 if (existingMessage == null) {
                     val entity = MessageEntity(
                         messageId = messageId,
@@ -48,7 +51,7 @@ class ChatRepository(
                         timestamp = timestamp,
                         deliveryStatus = "Delivered",
                         messageType = messageType,
-                        receiverId = _currentUserId
+                        receiverId = activeUserId
                     )
                     messageDao.insert(entity)
                     

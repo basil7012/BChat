@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -25,7 +26,7 @@ import com.bchat.app.network.User
 @Composable
 fun ContactScreen(viewModel: ChatViewModel, onContactClick: (User) -> Unit, onLogout: () -> Unit) {
     val users by viewModel.users.collectAsStateWithLifecycle()
-    val isContactOnline by viewModel.isContactOnline.collectAsStateWithLifecycle()
+    val userPresence by viewModel.userPresence.collectAsStateWithLifecycle()
     
     LaunchedEffect(Unit) {
         viewModel.fetchUsers()
@@ -34,52 +35,94 @@ fun ContactScreen(viewModel: ChatViewModel, onContactClick: (User) -> Unit, onLo
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Messages", fontWeight = FontWeight.ExtraBold) },
+                title = { 
+                    Text(
+                        "Messages", 
+                        fontWeight = FontWeight.ExtraBold, 
+                        color = Color(0xFF1E293B),
+                        fontSize = 24.sp
+                    ) 
+                },
                 actions = {
                     IconButton(onClick = onLogout) {
-                        Icon(Icons.Default.Logout, contentDescription = "Logout")
+                        Icon(Icons.Default.Logout, contentDescription = "Logout", tint = Color(0xFF1E293B))
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.padding(padding).fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
-            LazyColumn {
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .background(Color(0xFFF8FAFC))
+        ) {
+            LazyColumn(
+                contentPadding = PaddingValues(vertical = 8.dp)
+            ) {
                 items(users) { user ->
+                    val isOnline = userPresence[user.id] ?: false
+                    
                     ListItem(
                         headlineContent = { 
-                            Text(user.userName, fontWeight = FontWeight.SemiBold, fontSize = 16.sp) 
+                            Text(
+                                user.userName, 
+                                fontWeight = FontWeight.Bold, 
+                                fontSize = 16.sp,
+                                color = Color(0xFF1E293B)
+                            ) 
                         },
                         supportingContent = { 
-                            Text(user.email, color = Color.Gray, fontSize = 13.sp) 
+                            Text(
+                                user.email, 
+                                color = Color(0xFF64748B), 
+                                fontSize = 13.sp
+                            ) 
                         },
                         leadingContent = {
-                            Box(modifier = Modifier.size(50.dp)) {
+                            Box(modifier = Modifier.size(52.dp)) {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .clip(CircleShape)
-                                        .background(MaterialTheme.colorScheme.primaryContainer),
+                                        .background(
+                                            Brush.linearGradient(
+                                                colors = listOf(Color(0xFF6366F1), Color(0xFF8B5CF6))
+                                            )
+                                        ),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
                                         user.userName.take(1).uppercase(),
                                         fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        color = Color.White,
                                         fontSize = 20.sp
                                     )
                                 }
-                                // Small online indicator would go here if we had it for all users
+                                if (isOnline) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(14.dp)
+                                            .align(Alignment.BottomEnd)
+                                            .clip(CircleShape)
+                                            .background(Color.White)
+                                            .padding(2.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFF10B981))
+                                    )
+                                }
                             }
                         },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                         modifier = Modifier
                             .clickable { onContactClick(user) }
-                            .padding(vertical = 4.dp)
+                            .padding(vertical = 4.dp, horizontal = 8.dp)
                     )
                     HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 72.dp),
+                        modifier = Modifier.padding(horizontal = 76.dp),
                         thickness = 0.5.dp,
-                        color = Color.LightGray.copy(alpha = 0.5f)
+                        color = Color.LightGray.copy(alpha = 0.3f)
                     )
                 }
                 
