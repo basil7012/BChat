@@ -402,7 +402,9 @@ fun ChatScreen(viewModel: ChatViewModel, onBack: () -> Unit, modifier: Modifier 
                                     inputText = ""
                                 }
                             },
-                            enabled = connectionStatus == ConnectionStatus.Connected && hasText,
+                            // Send is always available when there is text — ChatRepository
+                            // saves the message locally with "Pending" status immediately.
+                            enabled = hasText,
                             modifier = Modifier
                                 .graphicsLayer(scaleX = sendScale, scaleY = sendScale)
                                 .size(44.dp)

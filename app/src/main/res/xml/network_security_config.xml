@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Network Security Configuration
+    Whitelists cleartext (HTTP) traffic to the production MonsterASP.NET backend
+    and common local debugging addresses. All other traffic defaults to HTTPS only.
+-->
+<network-security-config>
+    <!-- Production backend on MonsterASP.NET -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">bchat.runasp.net</domain>
+    </domain-config>
+
+    <!-- Local development / USB debugging -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">10.0.2.2</domain>    <!-- Android emulator localhost -->
+        <domain includeSubdomains="false">192.168.1.1</domain> <!-- Common LAN gateway -->
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+</network-security-config>

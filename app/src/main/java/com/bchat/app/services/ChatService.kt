@@ -46,8 +46,9 @@ class ChatService {
             .withHubProtocol(MessagePackHubProtocol())
             
         if (!token.isNullOrBlank()) {
-            Log.d("ChatService", "Using token for authentication")
+            Log.d("ChatService", "Attaching JWT to SignalR handshake")
             builder.withAccessTokenProvider(Single.just(token))
+            builder.withHeader("Authorization", "Bearer $token")
         }
 
         hubConnection = builder.build()
