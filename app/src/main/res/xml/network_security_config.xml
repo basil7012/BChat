@@ -1,19 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
     Network Security Configuration
-    Whitelists cleartext (HTTP) traffic to the production MonsterASP.NET backend
-    and common local debugging addresses. All other traffic defaults to HTTPS only.
+    - Permits cleartext HTTP to ALL domains (no SSL certificate required)
+    - Trusts system CAs, user-installed CAs, and self-signed certificates
+    - Required for MonsterASP.NET HTTP backend with no SSL certificate
 -->
 <network-security-config>
-    <!-- Production backend on MonsterASP.NET -->
+    <!-- Global base: allow HTTP everywhere and trust all certificate authorities -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <!-- System trusted CAs (standard HTTPS sites) -->
+            <certificates src="system" />
+            <!-- User-installed CAs (self-signed / Charles Proxy / debug certificates) -->
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- Production MonsterASP.NET backend (HTTP, no SSL) -->
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">bchat.runasp.net</domain>
+        <domain includeSubdomains="true">runasp.net</domain>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
     </domain-config>
 
     <!-- Local development / USB debugging -->
     <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="false">10.0.2.2</domain>    <!-- Android emulator localhost -->
-        <domain includeSubdomains="false">192.168.1.1</domain> <!-- Common LAN gateway -->
+        <domain includeSubdomains="false">10.0.2.2</domain>
+        <domain includeSubdomains="false">10.0.3.2</domain>
+        <domain includeSubdomains="false">192.168.1.1</domain>
         <domain includeSubdomains="false">localhost</domain>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
     </domain-config>
 </network-security-config>

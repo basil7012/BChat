@@ -35,16 +35,45 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManager
+import javax.net.ssl.X509TrustManager
 
 enum class Screen {
     Login, Contacts, Chat
+}
+
+/**
+ * Builds an OkHttpClient that trusts ALL certificates.
+ * Required when the backend runs on plain HTTP or has no valid SSL certificate
+ * (e.g., MonsterASP.NET shared hosting without HTTPS).
+ *
+ * NOTE: Do NOT use this in a Play Store production app that handles sensitive data
+ * over HTTPS. Replace with proper certificate pinning once SSL is obtained.
+ */
+fun buildTrustAllOkHttpClient(): OkHttpClient {
+    val trustAllCerts = arrayOf<TrustManager>(object : X509TrustManager {
+        override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) = Unit
+        override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) = Unit
+        override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
+    })
+    val sslContext = SSLContext.getInstance("TLS").apply {
+        init(null, trustAllCerts, SecureRandom())
+    }
+    return OkHttpClient.Builder()
+        .sslSocketFactory(sslContext.socketFactory, trustAllCerts[0] as X509TrustManager)
+        .hostnameVerifier { _, _ -> true }   // accept any hostname
+        .build()
 }
 
 class MainActivity : ComponentActivity() {
 
     private val apiService by lazy {
         val logging = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY }
-        val client = OkHttpClient.Builder()
+        val client = buildTrustAllOkHttpClient()
+            .newBuilder()
             .addInterceptor(logging)
             .connectTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
             .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
