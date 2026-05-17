@@ -40,12 +40,10 @@ class ChatService {
         Log.d("ChatService", "Starting connection to $url")
         _connectionStatus.value = ConnectionStatus.Connecting
 
-        // Use standard JSON protocol — MonsterASP.NET backend has not been redeployed
-        // with AddMessagePackProtocol() yet. JSON is the universal fallback that always works.
+        // Use standard JSON protocol — universal, always works with ASP.NET Core SignalR.
+        // Transport is auto-negotiated: WebSocket → SSE → Long Polling.
+        // MonsterASP.NET IIS will naturally fall back to Long Polling during negotiate.
         val builder = HubConnectionBuilder.create(url)
-            // Force Long Polling transport — MonsterASP.NET shared IIS hosting
-            // blocks WebSocket upgrades. Long Polling works on any HTTP host.
-            .withTransport(HttpTransportType.LONG_POLLING)
 
         if (!token.isNullOrBlank()) {
             Log.d("ChatService", "Attaching JWT to SignalR handshake")
